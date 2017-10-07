@@ -1,0 +1,18 @@
+<html>
+  <head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.js"></script>
+    <script>
+        $( document ).ready(function() {
+            var socket = io.connect('http://localhost:8080');
+            socket.on('tweetStream', function(tweet){
+                $('#tweetContainer').append(tweet+'<br>');
+            });
+        });
+    </script>
+  </head>
+  <body>
+    <div id="tweetContainer"></div>
+  </body>
+</html>
+
