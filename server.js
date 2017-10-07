@@ -20,7 +20,9 @@ const Express = require('express')
 
 Server.listen(Port);
 
-mongoose.connect('mongodb://localhost/tweets', { useMongoClient: true, promiseLibrary: global.Promise });
+var MongoDBUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/tweets';
+
+mongoose.connect(MongoDBUrl, { useMongoClient: true, promiseLibrary: global.Promise });
 
 var TwitHandler = new Twit({
     consumer_key:         TwitterConsumerKey
@@ -35,22 +37,54 @@ SocketIO.sockets.on('connection', function (socket) {
     var interval = setInterval(function(){
         Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
 
-            console.log(storedTweet.date);
-            if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
-            {
-                console.log("It's Time: " + storedTweet );
-                SocketIO.sockets.emit('tweetStream', storedTweet.content);
-                // delete
-                storedTweet.remove(function(err) {
-                    if (err)
-                    {
-                        console.log(err);
-                    }
-                    console.log('Tweet successfully deleted!');
-                });
+            if(storedTweet){
+                console.log(storedTweet.date);
+                if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
+                {
+                    console.log("It's Time: " + storedTweet );
+                    SocketIO.sockets.emit('tweetStream', storedTweet.content);
+                    // delete
+                    storedTweet.remove(function(err) {
+                        if (err)
+                        {
+                            console.log(err);
+                        }
+                        console.log('Tweet successfully deleted!');
+                    });
+                }
             }
         });
     }, 3000);
+});
+
+// routing
+App.route('/').get(function(request, response) {
+    response.json({ message: 'Usage is http://URL/latitude/[latitude]/longitude/[longitude]' });
+});
+
+App.route('/latitude/:latitude/longitude/:longitude').get(function(request, response) {
+
+    if (isNumeric(request.params.latitude) && isNumeric(request.params.longitude))
+    {
+        var userLocation = new GeoPoint(parseInt(request.params.latitude), parseInt(request.params.longitude));
+
+        var boundingCoordinates = userLocation.boundingCoordinates(BoundingDistance, true);
+
+        if(boundingCoordinates.length == 2)
+        {
+            var boundingBox = [ boundingCoordinates[0].longitude(), boundingCoordinates[0].latitude(), boundingCoordinates[1].longitude(), boundingCoordinates[1].latitude() ];
+
+            var stream = TwitHandler.stream('statuses/filter', { locations: boundingBox });
+
+            TweetStreamIntoDatabase(stream);
+        }
+
+        response.sendFile(__dirname + '/delayed.html');
+    }
+    else
+    {
+        response.json({ message: 'Latitude and longitude should be numeric values.' });
+    }
 });
 
 function TweetStreamIntoDatabase(stream)
@@ -71,26 +105,6 @@ function TweetStreamIntoDatabase(stream)
     });
 }
 
-// routing
-App.route('/latitude/:latitude/longitude/:longitude').get(function(request, response) {
-
-    if (request.params.latitude && request.params.longitude)
-    {
-        var userLocation = new GeoPoint(parseInt(request.params.latitude), parseInt(request.params.longitude));
-
-        var boundingCoordinates = userLocation.boundingCoordinates(BoundingDistance, true);
-
-        if(boundingCoordinates.length == 2)
-        {
-            var boundingBox = [ boundingCoordinates[0].longitude(), boundingCoordinates[0].latitude(), boundingCoordinates[1].longitude(), boundingCoordinates[1].latitude() ];
-
-            var stream = TwitHandler.stream('statuses/filter', { locations: boundingBox });
-
-            TweetStreamIntoDatabase(stream);
-        }
-
-        response.sendFile(__dirname + '/delayed.html');
-    }
-});
-
-
+function isNumeric (n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+}
