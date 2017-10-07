@@ -1,7 +1,7 @@
 const Port = process.env.PORT || 8080;
 
-var BoundingDistance = 100; // Distance (km) from the point to calculate the bounding coordinates
-var StreamingDelay = 1; // hours
+const BoundingDistance = 100; // Distance (km) from the point to calculate the bounding coordinates
+const StreamingDelay = process.env.DELAY || 24; // hours
 
 const TwitterConsumerKey        = "HsE4QkMfRXMbVpYwBmelzA";
 const TwitterConsumerSecret     = "4tKldZjBmBdRJHhSKUlB5Dlc9KLvI44qakGWRlKlu4";
