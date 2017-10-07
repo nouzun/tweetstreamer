@@ -1,4 +1,4 @@
-const Port = 8080;
+const Port = process.env.PORT || 8080;
 
 var BoundingDistance = 100; // Distance (km) from the point to calculate the bounding coordinates
 var StreamingDelay = 1; // hours
