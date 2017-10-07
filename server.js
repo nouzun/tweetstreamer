@@ -53,11 +53,6 @@ SocketIO.sockets.on('connection', function (socket) {
     }, 3000);
 });
 
-// routing
-App.get('/all', function (request, response) {
-    response.sendFile(__dirname + '/index.html');
-});
-
 function TweetStreamIntoDatabase(stream)
 {
     stream.on('tweet', function (tweet) {
@@ -76,6 +71,7 @@ function TweetStreamIntoDatabase(stream)
     });
 }
 
+// routing
 App.route('/latitude/:latitude/longitude/:longitude').get(function(request, response) {
 
     if (request.params.latitude && request.params.longitude)
