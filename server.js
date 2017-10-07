@@ -21,7 +21,9 @@ const Express = require('express')
 Server.listen(Port);
 
 var MongoDBUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/tweets';
+
 console.log(MongoDBUrl);
+console.log('StreamingDelay: ' + StreamingDelay);
 
 mongoose.connect(MongoDBUrl, { useMongoClient: true, promiseLibrary: global.Promise });
 
