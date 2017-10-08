@@ -45,7 +45,7 @@ SocketIO.sockets.on('connection', function (socket) {
     console.log('Connected');
 });
 
-list_all_tweets = function(request, response) {
+ListDelayedTweets = function(request, response) {
     var interval = setInterval(function(){
         Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
 
@@ -71,7 +71,7 @@ list_all_tweets = function(request, response) {
     response.sendFile(__dirname + '/delayed.html');
 };
 
-store_tweets = function(request, response) {
+StoreLiveStreamingTweets = function(request, response) {
     console.log(request.body.latitude);
     if (isNumeric(request.body.latitude) && isNumeric(request.body.longitude))
     {
@@ -111,8 +111,8 @@ store_tweets = function(request, response) {
 };
 
 App.route('/tweets')
-    .get(list_all_tweets)
-    .post(store_tweets);
+    .get(ListDelayedTweets)
+    .post(StoreLiveStreamingTweets);
 
 // routing
 App.use(function(request, response) {
