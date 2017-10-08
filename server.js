@@ -11,21 +11,28 @@ const TwitterAccessTokenSecret  = "Bba4qZ5NvBlqqx1G4kidqe2T57rIMBbiOKXm9ulRxGlZm
 const Express = require('express')
     , App = Express()
     , Http = require('http')
-    , mongoose = require('mongoose')
+    , BodyParser = require('body-parser')
+    , Mongoose = require('mongoose')
     , Server = Http.createServer(App)
     , Twit = require('twit')
     , SocketIO = require('socket.io').listen(Server)
     , GeoPoint = require('geopoint')
     , Tweet = require('./models/tweet');
 
+const MongoDBUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/tweets';
+
 Server.listen(Port);
 
-var MongoDBUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/tweets';
+App.use(BodyParser.urlencoded({
+    extended: true
+}));
+
+App.use(BodyParser.json());
 
 console.log(MongoDBUrl);
 console.log('StreamingDelay: ' + StreamingDelay);
 
-mongoose.connect(MongoDBUrl, { useMongoClient: true, promiseLibrary: global.Promise });
+Mongoose.connect(MongoDBUrl, { useMongoClient: true, promiseLibrary: global.Promise });
 
 var TwitHandler = new Twit({
     consumer_key:         TwitterConsumerKey
@@ -36,7 +43,9 @@ var TwitHandler = new Twit({
 
 SocketIO.sockets.on('connection', function (socket) {
     console.log('Connected');
+});
 
+list_all_tweets = function(request, response) {
     var interval = setInterval(function(){
         Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
 
@@ -45,7 +54,7 @@ SocketIO.sockets.on('connection', function (socket) {
                 if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
                 {
                     console.log("It's Time: " + storedTweet );
-                    SocketIO.sockets.emit('tweetStream', storedTweet.content);
+                    SocketIO.sockets.emit('tweetStream', storedTweet);
                     // delete
                     storedTweet.remove(function(err) {
                         if (err)
@@ -58,18 +67,15 @@ SocketIO.sockets.on('connection', function (socket) {
             }
         });
     }, 3000);
-});
 
-// routing
-App.route('/').get(function(request, response) {
-    response.json({ message: 'Usage is http://URL/latitude/[latitude]/longitude/[longitude]' });
-});
+    response.sendFile(__dirname + '/delayed.html');
+};
 
-App.route('/latitude/:latitude/longitude/:longitude').get(function(request, response) {
-
-    if (isNumeric(request.params.latitude) && isNumeric(request.params.longitude))
+store_tweets = function(request, response) {
+    console.log(request.body.latitude);
+    if (isNumeric(request.body.latitude) && isNumeric(request.body.longitude))
     {
-        var userLocation = new GeoPoint(parseInt(request.params.latitude), parseInt(request.params.longitude));
+        var userLocation = new GeoPoint(parseInt(request.body.latitude), parseInt(request.body.longitude));
 
         var boundingCoordinates = userLocation.boundingCoordinates(BoundingDistance, true);
 
@@ -79,34 +85,40 @@ App.route('/latitude/:latitude/longitude/:longitude').get(function(request, resp
 
             var stream = TwitHandler.stream('statuses/filter', { locations: boundingBox });
 
-            TweetStreamIntoDatabase(stream);
+            stream.on('tweet', function (tweet) {
+
+                var tweetObj = new Tweet();
+                tweetObj.content = tweet.text;
+                tweetObj.date = Date.now();
+
+                // save the tweet and check for errors
+                tweetObj.save(function(err) {
+                    if (err)
+                    {
+                        console.log(err);
+                    }
+                    console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
+                });
+            });
         }
 
-        response.sendFile(__dirname + '/delayed.html');
+        response.sendFile(__dirname + '/index.html');
     }
     else
     {
         response.json({ message: 'Latitude and longitude should be numeric values.' });
     }
+};
+
+App.route('/tweets')
+    .get(list_all_tweets)
+    .post(store_tweets);
+
+// routing
+App.use(function(request, response) {
+    response.sendFile(__dirname + '/index.html');
+    //response.status(404).send({url: request.originalUrl + ' not found'})
 });
-
-function TweetStreamIntoDatabase(stream)
-{
-    stream.on('tweet', function (tweet) {
-
-        var tweetObj = new Tweet();
-        tweetObj.content = tweet.text;
-        tweetObj.date = Date.now();
-
-        // save the tweet and check for errors
-        tweetObj.save(function(err) {
-            if (err)
-            {
-                console.log(err);
-            }
-        });
-    });
-}
 
 function isNumeric (n) {
     return !isNaN(parseFloat(n)) && isFinite(n);

@@ -4,14 +4,15 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.js"></script>
     <script>
         $( document ).ready(function() {
-            var socket = io.connect(window.location.hostname);
+            var socket = io.connect(window.location.host);
             socket.on('tweetStream', function(tweet){
-                $('#tweetContainer').append(tweet+'<br>');
+                $('#tweetContainer').append(tweet.date + ': ' + tweet.content+'<br>');
             });
         });
     </script>
   </head>
   <body>
+    <h3>Delayed Tweets</h3>
     <div id="tweetContainer"></div>
   </body>
 </html>
