@@ -91,14 +91,20 @@ StoreLiveStreamingTweets = function(request, response) {
                 tweetObj.content = tweet.text;
                 tweetObj.date = Date.now();
 
-                // save the tweet and check for errors
-                tweetObj.save(function(err) {
-                    if (err)
+                Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
+                    if(storedTweet.content != tweetObj.content)
                     {
-                        console.log(err);
+                        // save the tweet and check for errors
+                        tweetObj.save(function(err) {
+                            if (err)
+                            {
+                                console.log(err);
+                            }
+                            console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
+                        });
                     }
-                    console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
                 });
+
             });
         }
 
@@ -110,14 +116,82 @@ StoreLiveStreamingTweets = function(request, response) {
     }
 };
 
+StoreAndListDelayedTweets = function(request, response) {
+    console.log(request.params.latitude);
+    if (isNumeric(request.params.latitude) && isNumeric(request.params.longitude))
+    {
+        var userLocation = new GeoPoint(parseInt(request.params.latitude), parseInt(request.params.longitude));
+
+        var boundingCoordinates = userLocation.boundingCoordinates(BoundingDistance, true);
+
+        if(boundingCoordinates.length == 2)
+        {
+            var boundingBox = [ boundingCoordinates[0].longitude(), boundingCoordinates[0].latitude(), boundingCoordinates[1].longitude(), boundingCoordinates[1].latitude() ];
+
+            var stream = TwitHandler.stream('statuses/filter', { locations: boundingBox });
+
+            stream.on('tweet', function (tweet) {
+
+                var tweetObj = new Tweet();
+                tweetObj.content = tweet.text;
+                tweetObj.date = Date.now();
+
+                Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
+                    if(storedTweet.content != tweetObj.content)
+                    {
+                        // save the tweet and check for errors
+                        tweetObj.save(function(err) {
+                            if (err)
+                            {
+                                console.log(err);
+                            }
+                            console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
+                        });
+                    }
+                });
+            });
+        }
+
+        var interval = setInterval(function(){
+            Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
+
+                if(storedTweet){
+                    console.log(storedTweet.date);
+                    if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
+                    {
+                        console.log("It's Time: " + storedTweet );
+                        SocketIO.sockets.emit('tweetStream', storedTweet);
+                        // delete
+                        storedTweet.remove(function(err) {
+                            if (err)
+                            {
+                                console.log(err);
+                            }
+                            console.log('Tweet successfully deleted!');
+                        });
+                    }
+                }
+            });
+        }, 3000);
+
+        response.sendFile(__dirname + '/delayed.html');
+    }
+    else
+    {
+        response.json({ message: 'Latitude and longitude should be numeric values.' });
+    }
+};
+
+// routing
 App.route('/tweets')
     .get(ListDelayedTweets)
     .post(StoreLiveStreamingTweets);
 
-// routing
+App.route('/lat/:latitude/lng/:longitude')
+    .get(StoreAndListDelayedTweets);
+
 App.use(function(request, response) {
     response.sendFile(__dirname + '/index.html');
-    //response.status(404).send({url: request.originalUrl + ' not found'})
 });
 
 function isNumeric (n) {
