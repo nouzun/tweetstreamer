@@ -92,7 +92,21 @@ StoreLiveStreamingTweets = function(request, response) {
                 tweetObj.date = Date.now();
 
                 Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
-                    if(storedTweet.content != tweetObj.content)
+                    if(storedTweet)
+                    {
+                        if(storedTweet.content != tweetObj.content)
+                        {
+                            // save the tweet and check for errors
+                            tweetObj.save(function(err) {
+                                if (err)
+                                {
+                                    console.log(err);
+                                }
+                                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
+                            });
+                        }
+                    }
+                    else
                     {
                         // save the tweet and check for errors
                         tweetObj.save(function(err) {
@@ -137,7 +151,21 @@ StoreAndListDelayedTweets = function(request, response) {
                 tweetObj.date = Date.now();
 
                 Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
-                    if(storedTweet.content != tweetObj.content)
+                    if(storedTweet)
+                    {
+                        if(storedTweet.content != tweetObj.content)
+                        {
+                            // save the tweet and check for errors
+                            tweetObj.save(function(err) {
+                                if (err)
+                                {
+                                    console.log(err);
+                                }
+                                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
+                            });
+                        }
+                    }
+                    else
                     {
                         // save the tweet and check for errors
                         tweetObj.save(function(err) {
