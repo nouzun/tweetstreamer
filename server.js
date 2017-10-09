@@ -21,6 +21,9 @@ const Express = require('express')
 
 const MongoDBUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/tweets';
 
+var clients = {};
+var _socket = null;
+
 Server.listen(Port);
 
 App.use(BodyParser.urlencoded({
@@ -42,10 +45,13 @@ var TwitHandler = new Twit({
 });
 
 SocketIO.sockets.on('connection', function (socket) {
-    console.log('Connected');
+    console.log('Connected: ' + socket.id);
+    _socket = socket;
+    clients[socket.id] = []; 
 
-    var interval = setInterval(function(){
-        Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
+    clients[_socket.id].interval = setInterval(function(){
+
+            storedTweet = clients[_socket.id][0];
 
             if(storedTweet){
                 console.log(storedTweet.date);
@@ -53,18 +59,15 @@ SocketIO.sockets.on('connection', function (socket) {
                 {
                     console.log("It's Time: " + storedTweet );
                     socket.emit('tweetStream', storedTweet);
-                    // delete
-                    storedTweet.remove(function(err) {
-                        if (err)
-                        {
-                            console.log(err);
-                        }
-                        console.log('Tweet successfully deleted!');
-                    });
+
+		    clients[_socket.id].shift();
                 }
             }
-        });
     }, 3000);
+
+    socket.on("disconnect", function () {
+        clearInterval(clients[_socket.id].interval);
+    });
 
 });
 
@@ -93,33 +96,9 @@ StoreLiveStreamingTweets = function(request, response) {
                 tweetObj.content = tweet.text;
                 tweetObj.date = Date.now();
 
-                Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
-                    if(storedTweet)
-                    {
-                        if(storedTweet.content != tweetObj.content)
-                        {
-                            // save the tweet and check for errors
-                            tweetObj.save(function(err) {
-                                if (err)
-                                {
-                                    console.log(err);
-                                }
-                                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
-                            });
-                        }
-                    }
-                    else
-                    {
-                        // save the tweet and check for errors
-                        tweetObj.save(function(err) {
-                            if (err)
-                            {
-                                console.log(err);
-                            }
-                            console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
-                        });
-                    }
-                });
+                // save the tweet
+                clients[_socket.id].push(tweetObj);
+                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
 
             });
         }
@@ -152,33 +131,9 @@ StoreAndListDelayedTweets = function(request, response) {
                 tweetObj.content = tweet.text;
                 tweetObj.date = Date.now();
 
-                Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
-                    if(storedTweet)
-                    {
-                        if(storedTweet.content != tweetObj.content)
-                        {
-                            // save the tweet and check for errors
-                            tweetObj.save(function(err) {
-                                if (err)
-                                {
-                                    console.log(err);
-                                }
-                                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
-                            });
-                        }
-                    }
-                    else
-                    {
-                        // save the tweet and check for errors
-                        tweetObj.save(function(err) {
-                            if (err)
-                            {
-                                console.log(err);
-                            }
-                            console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
-                        });
-                    }
-                });
+                // save the tweet
+                clients[_socket.id].push(tweetObj);
+                console.log('Store in DB: ' + tweetObj.date + ': ' + tweetObj.content);
             });
         }
 
