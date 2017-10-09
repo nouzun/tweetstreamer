@@ -43,9 +43,7 @@ var TwitHandler = new Twit({
 
 SocketIO.sockets.on('connection', function (socket) {
     console.log('Connected');
-});
 
-ListDelayedTweets = function(request, response) {
     var interval = setInterval(function(){
         Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
 
@@ -54,7 +52,7 @@ ListDelayedTweets = function(request, response) {
                 if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
                 {
                     console.log("It's Time: " + storedTweet );
-                    SocketIO.sockets.emit('tweetStream', storedTweet);
+                    socket.emit('tweetStream', storedTweet);
                     // delete
                     storedTweet.remove(function(err) {
                         if (err)
@@ -67,6 +65,10 @@ ListDelayedTweets = function(request, response) {
             }
         });
     }, 3000);
+
+});
+
+ListDelayedTweets = function(request, response) {
 
     response.sendFile(__dirname + '/delayed.html');
 };
@@ -179,28 +181,6 @@ StoreAndListDelayedTweets = function(request, response) {
                 });
             });
         }
-
-        var interval = setInterval(function(){
-            Tweet.findOne({}, {}, { sort: { 'date' : 1 } }, function(err, storedTweet) {
-
-                if(storedTweet){
-                    console.log(storedTweet.date);
-                    if(storedTweet.date < Date.now() - 1 * StreamingDelay * 3600 * 1000)
-                    {
-                        console.log("It's Time: " + storedTweet );
-                        SocketIO.sockets.emit('tweetStream', storedTweet);
-                        // delete
-                        storedTweet.remove(function(err) {
-                            if (err)
-                            {
-                                console.log(err);
-                            }
-                            console.log('Tweet successfully deleted!');
-                        });
-                    }
-                }
-            });
-        }, 3000);
 
         response.sendFile(__dirname + '/delayed.html');
     }
